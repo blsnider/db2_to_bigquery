@@ -107,6 +107,19 @@ def load_to_bigquery(df, config, use_merge=True):
         except Exception as e:
             logger.warning(f"Staging cleanup skipped/failed: {e}")
 
+    # 4) Cleanup old records from final table (remove phantom/ghost data)
+    if config.get('cleanup_final', True):
+        try:
+            deleted_final = cleanup_old_records(
+                client, final_ref,
+                days_back=config.get('days_back', 30),
+                days_forward=config.get('days_forward', 60),
+                date_column=config.get('date_column', 'expected_date')
+            )
+            logger.info(f"Final table cleanup deleted {deleted_final} old rows outside rolling window.")
+        except Exception as e:
+            logger.warning(f"Final table cleanup skipped/failed: {e}")
+
     return len(df)
 
 def merge_to_final(client, staging_ref, final_ref, config):

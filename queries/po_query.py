@@ -233,5 +233,8 @@ def get_po_config():
         'generate_record_key': generate_po_record_key,
         'merge_order_by': 'load_timestamp DESC, shipnotice_date DESC, latest_datercv DESC, rcvdqty DESC, ooqty DESC',
         'date_column': 'expected_date',
-        'cleanup_staging': True
+        'days_back': 30,
+        'days_forward': 60,
+        'cleanup_staging': True,
+        'cleanup_final': True
     }

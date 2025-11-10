@@ -285,5 +285,8 @@ def get_breakout_config():
         'generate_record_key': generate_breakout_record_key,
         'merge_order_by': 'load_timestamp DESC, exp_date DESC',
         'date_column': 'exp_date',
-        'cleanup_staging': True
+        'days_back': 30,
+        'days_forward': 60,
+        'cleanup_staging': True,
+        'cleanup_final': True
     }
