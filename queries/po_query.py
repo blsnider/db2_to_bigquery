@@ -236,5 +236,6 @@ def get_po_config():
         'days_back': 30,
         'days_forward': 60,
         'cleanup_staging': True,
-        'cleanup_final': True
+        'cleanup_final': True,
+        'cleanup_stale': True
     }

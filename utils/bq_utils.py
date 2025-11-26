@@ -61,6 +61,35 @@ def cleanup_old_records(client, table_ref, days_back=30, days_forward=60, date_c
         logger.warning(f"Cleanup failed (non-critical): {str(e)}")
         return 0
 
+
+def cleanup_stale_records(client, final_ref, staging_ref):
+    """
+    Remove records from final table that weren't refreshed in the latest batch.
+
+    This eliminates ghost data - records that no longer exist in the source DB2
+    but remain in BigQuery because they're still within the date window.
+    """
+    cleanup_query = f"""
+    DELETE FROM `{final_ref}` F
+    WHERE F.load_timestamp < (
+        SELECT MAX(load_timestamp) FROM `{staging_ref}`
+    )
+    """
+
+    logger.info(f"Cleaning up stale records not refreshed in latest batch from {final_ref}")
+
+    try:
+        cleanup_job = client.query(cleanup_query)
+        cleanup_job.result()
+
+        deleted_rows = cleanup_job.num_dml_affected_rows
+        logger.info(f"Stale cleanup completed. Deleted {deleted_rows} records not in latest refresh.")
+
+        return deleted_rows
+    except Exception as e:
+        logger.warning(f"Stale cleanup failed (non-critical): {str(e)}")
+        return 0
+
 def load_to_bigquery(df, config, use_merge=True):
     """
     Load data to BigQuery with staging and final table strategy
@@ -107,7 +136,7 @@ def load_to_bigquery(df, config, use_merge=True):
         except Exception as e:
             logger.warning(f"Staging cleanup skipped/failed: {e}")
 
-    # 4) Cleanup old records from final table (remove phantom/ghost data)
+    # 4) Cleanup old records from final table (remove phantom/ghost data outside date window)
     if config.get('cleanup_final', True):
         try:
             deleted_final = cleanup_old_records(
@@ -119,6 +148,14 @@ def load_to_bigquery(df, config, use_merge=True):
             logger.info(f"Final table cleanup deleted {deleted_final} old rows outside rolling window.")
         except Exception as e:
             logger.warning(f"Final table cleanup skipped/failed: {e}")
+
+    # 5) Cleanup stale records not refreshed in latest batch (removes ghost data within date window)
+    if config.get('cleanup_stale', True):
+        try:
+            deleted_stale = cleanup_stale_records(client, final_ref, staging_ref)
+            logger.info(f"Stale record cleanup deleted {deleted_stale} rows not in latest refresh.")
+        except Exception as e:
+            logger.warning(f"Stale record cleanup skipped/failed: {e}")
 
     return len(df)
 
